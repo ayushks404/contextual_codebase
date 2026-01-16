@@ -11,19 +11,18 @@ export const ask_ques = async (req, res) => {
       });
     }
 
-    // Call AI service
     const airesponse = await axios.post("http://localhost:8000/query", {
       project_id,
       question,
     });
 
-    // Normalize AI response
+    
     const result = {
       answer: airesponse.data.answer || airesponse.data.ans || airesponse.data.response,
       sources: airesponse.data.sources || [],
     };
 
-    // Save query
+    
     await Query.create({
       projectId: project_id,
       userId: req.user._id,
@@ -32,7 +31,7 @@ export const ask_ques = async (req, res) => {
       sources: result.sources,
     });
 
-    // Send response
+    
     return res.json(result);
 
   } catch (err) {
