@@ -23,5 +23,5 @@ const queryschema = new mongoose.Schema({
     },{ timestamps:true }
 );
 
-const Query  = mongoose.model("Query",queryschema);
+const Query = mongoose.model("Query", queryschema);
 export default Query;

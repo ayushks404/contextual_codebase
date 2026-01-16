@@ -1,6 +1,9 @@
 import User from "../models/user.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import  Query from "../models/query.js";
+import Project from "../models/project.js";
+import axios from "axios";
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "30d" });
@@ -79,3 +82,30 @@ export const login = async (req , res) => {
     }
 };
 
+export const logout = async (req,res) =>{
+
+    try{
+        const userId = req.user._id;
+
+        const projects = await Project.find({owner: userId});
+
+        await Query.deleteMany({userId});
+        await Project.deleteMany({owner: userId});
+
+        for(const pro of projects){
+            try {
+                await axios.post("http://localhost:8000/cleanup", {
+                project_id: pro._id.toString()
+                });
+            } catch (err) {
+                console.log("Cleanup failed for project:", pro._id);
+            }
+        }
+        return res.json({ message: "Session destroyed" });
+
+    }
+    catch (err){
+            console.error(" cleanup error:", err);
+            res.status(500).json({ message: " cleanup failed" });
+    }
+}
