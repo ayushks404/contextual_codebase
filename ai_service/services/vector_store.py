@@ -2,36 +2,37 @@ import faiss
 import os
 import pickle
 import numpy as np
+from supabase_client import upload_index, download_index
 
 VECTOR_SIZE = 384
-BASE_PATH = "./storage/indexes"
+LOCAL_INDEX_PATH = "./tmp/index.faiss"
+LOCAL_META_PATH = "./tmp/meta.pkl"
 
 def save_index(project_id: str, vectors: np.ndarray, metadata: list):
-    """
-    Save FAISS index and metadata for project_id.
-    vectors: numpy array shape (n, dim), dtype float32
-    metadata: list of dicts (one per vector)
-    """
-    os.makedirs(BASE_PATH, exist_ok=True)
+    os.makedirs("./tmp", exist_ok=True)
 
     n, dim = vectors.shape
     index = faiss.IndexFlatL2(dim)
     index.add(vectors)
 
-    faiss.write_index(index, os.path.join(BASE_PATH, f"{project_id}.index"))
+    faiss.write_index(index, LOCAL_INDEX_PATH)
 
-    with open(os.path.join(BASE_PATH, f"{project_id}.meta"), "wb") as f:
+    with open(LOCAL_META_PATH, "wb") as f:
         pickle.dump(metadata, f)
 
+    upload_index(LOCAL_INDEX_PATH, f"{project_id}.faiss")
+    upload_index(LOCAL_META_PATH, f"{project_id}.meta")
+
+
 def load_index(project_id: str):
-    idx_path = os.path.join(BASE_PATH, f"{project_id}.index")
-    meta_path = os.path.join(BASE_PATH, f"{project_id}.meta")
+    os.makedirs("./tmp", exist_ok=True)
 
-    if not os.path.exists(idx_path) or not os.path.exists(meta_path):
-        raise FileNotFoundError("Index or metadata not found for project_id: " + project_id)
+    download_index(f"{project_id}.faiss", LOCAL_INDEX_PATH)
+    download_index(f"{project_id}.meta", LOCAL_META_PATH)
 
-    index = faiss.read_index(idx_path)
-    with open(meta_path, "rb") as f:
+    index = faiss.read_index(LOCAL_INDEX_PATH)
+
+    with open(LOCAL_META_PATH, "rb") as f:
         metadata = pickle.load(f)
 
     return index, metadata

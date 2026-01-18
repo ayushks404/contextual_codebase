@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import shutil
@@ -5,6 +8,7 @@ import os
 import stat
 import time
 from services.rag_engine import index_repo, answer_question
+
 
 app = FastAPI(title="CCA AI Service")
 
@@ -57,24 +61,35 @@ def force_delete(func, path, exc_info):
     os.chmod(path, stat.S_IWRITE)
     func(path)
 
+
+from supabase_client import delete_index
+
+TMP_REPO_PATH = "./tmp/repos"
+LOCAL_INDEX_PATH = "./tmp/index.faiss"
+LOCAL_META_PATH = "./tmp/meta.pkl"
+
 @app.post("/cleanup")
 def cleanup_repo(data: dict):
     project_id = data["project_id"]
 
-    repo_path = f"./storage/repos/{project_id}"
-    index_path = f"./storage/indexes/{project_id}.index"
-    meta_path = f"./storage/indexes/{project_id}.meta"
+    # 1. Delete from Supabase
+    try:
+        delete_index(f"{project_id}.faiss")
+        delete_index(f"{project_id}.meta")
+    except Exception as e:
+        print("Supabase delete error:", e)
 
-    # wait a moment to let git release file handles
-    time.sleep(1)
-
+    # Delete cloned repo (Windows-safe)
+    repo_path = os.path.join(TMP_REPO_PATH, project_id)
     if os.path.exists(repo_path):
         shutil.rmtree(repo_path, onerror=force_delete)
 
-    if os.path.exists(index_path):
-        os.remove(index_path)
+    # Delete FAISS temp files
+    if os.path.exists(LOCAL_INDEX_PATH):
+        os.remove(LOCAL_INDEX_PATH)
 
-    if os.path.exists(meta_path):
-        os.remove(meta_path)
+    if os.path.exists(LOCAL_META_PATH):
+        os.remove(LOCAL_META_PATH)
+
 
     return {"status": "deleted"}

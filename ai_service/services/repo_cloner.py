@@ -1,14 +1,16 @@
+
 from git import Repo
 import os
+import shutil
 
-BASE_PATH = "./storage/repos"
+TMP_REPO_PATH = "./tmp/repos"
 
 def clone_repo(repo_url: str, project_id: str) -> str:
-    path = os.path.join(BASE_PATH , project_id)
+    path = os.path.join(TMP_REPO_PATH, project_id)
 
-    if os.path.exists(path) and os.path.isdir(path):
-        return path
+    if os.path.exists(path):
+        shutil.rmtree(path)
 
     os.makedirs(path, exist_ok=True)
-    Repo.clone_from(repo_url , path)
+    Repo.clone_from(repo_url, path)
     return path
