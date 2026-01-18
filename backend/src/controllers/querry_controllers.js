@@ -10,8 +10,9 @@ export const ask_ques = async (req, res) => {
         message: "Project ID and question are required",
       });
     }
+    const AI_SERVICE = process.env.AI_SERVICE_URL;
 
-    const airesponse = await axios.post("http://localhost:8000/query", {
+    const airesponse = await axios.post(`${AI_SERVICE}/query`, {
       project_id,
       question,
     });

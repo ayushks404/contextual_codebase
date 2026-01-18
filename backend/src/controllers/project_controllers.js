@@ -26,7 +26,9 @@ export const createproject = async (req, res) => {
     });
 
     // call ai for indexing 
-    axios.post("http://localhost:8000/index-repo", {
+    const AI_SERVICE = process.env.AI_SERVICE_URL;
+
+    axios.post(`${AI_SERVICE}/index-repo`, {
       project_id: project._id,
       repo_url: repourl,
     }).catch(err => {
