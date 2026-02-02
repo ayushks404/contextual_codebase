@@ -2,10 +2,10 @@ FROM node:20
 
 WORKDIR /app
 
-COPY frontend/package*.json ./
+COPY package*.json ./
 RUN rm -rf node_modules package-lock.json && npm install
 
-COPY frontend/ ./
+COPY . .
 
 EXPOSE 5173
 
