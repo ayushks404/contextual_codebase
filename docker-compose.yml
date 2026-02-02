@@ -8,8 +8,8 @@ services:
 
   backend:
     build:
-      context: .
-      dockerfile: backend/Dockerfile
+      context: ./backend
+      dockerfile: Dockerfile
     ports:
       - "5000:5000"
     environment:
@@ -21,15 +21,15 @@ services:
 
   ai_service:
     build:
-      context: .
-      dockerfile: ai_service/Dockerfile
+      context: ./ai_service
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
 
   frontend:
     build:
-      context: .
-      dockerfile: frontend/Dockerfile
+      context: ./frontend
+      dockerfile: Dockerfile
     ports:
       - "5173:5173"
     command: npm run dev -- --host 0.0.0.0
