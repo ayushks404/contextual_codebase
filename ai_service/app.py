@@ -39,6 +39,7 @@ def index_repository(req: IndexRequest):
         result = index_repo(req.project_id, req.repo_url)
         return result
     except Exception as e:
+        print("🔥 INDEX ERROR:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 
