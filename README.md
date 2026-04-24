@@ -73,8 +73,7 @@ MongoDB Atlas
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/contextual-codebase-ai.git
-cd contextual-codebase-ai
+git clone https://github.com/ayushks404/contextual_codebase.git
 ```
 
 ---
