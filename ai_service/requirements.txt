@@ -6,3 +6,5 @@ faiss-cpu
 requests
 numpy
 supabase
+scikit-learn
+pydantic

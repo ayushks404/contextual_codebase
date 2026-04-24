@@ -1,10 +1,10 @@
 # services/rag_engine.py
 import os
-from services.repo_cloner import clone_repo
-from services.chunker import read_files, chunk_code
-from services.embeddings import generate_embeddings
-from services.vector_store import save_index, load_index
-from services.llm_client import generate
+from services.rag.repo_cloner import clone_repo
+from services.rag.chunker import read_files, chunk_code
+from services.rag.embeddings import generate_embeddings
+from services.rag.vector_store import save_index, load_index
+from services.llm.llm_client import generate
 
 
 def index_repo(project_id: str, repo_url: str):

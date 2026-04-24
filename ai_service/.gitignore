@@ -7,3 +7,4 @@ ai_service/storage
 ai_service/*.pyc
 
 .DS_Store
+*.pkl
