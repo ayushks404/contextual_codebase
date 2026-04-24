@@ -1,130 +1,197 @@
-Contextual Codebase Analysis (CCA)
-Contextual Codebase Analysis is a full-stack Retrieval-Augmented Generation (RAG) platform that empowers developers to understand and query complex codebases. By securely cloning, chunking, and indexing Git repositories, the system allows users to ask natural language questions and receive accurate, context-aware answers grounded in the actual source code.
+# 🚀 Contextual Codebase AI
 
-🚀 Features
-Automated Repository Processing: Clones remote repositories, intelligently chunks source code files, and processes them for AI analysis.
+An intelligent system that analyzes any GitHub repository and answers questions about its codebase using AI, embeddings, and backend services.
 
-RAG-Powered Code Search: Uses localized text embeddings and FAISS vector search to retrieve relevant code snippets based on user queries.
+---
 
-Context-Aware AI Chat: Integrates with OpenRouter LLMs to explain code, debug issues, and document architecture using the retrieved repository context.
+## 🧠 Overview
 
-User & Project Management: Secure JWT-based authentication to manage individual workspaces, project metadata, and query histories.
+Contextual Codebase AI allows users to:
 
-Containerized Microservices: Fully dockerized architecture orchestrating a Node.js backend, a Python AI service, a React frontend, and a local embedding API.
+* 📂 Input a GitHub repository
+* ⚙️ Automatically index the codebase
+* 🤖 Ask questions about the project
+* 📊 Get structured, AI-generated explanations
 
-🛠️ Tech Stack
-Frontend
-React.js (via Vite)
+This project demonstrates how AI can be integrated with backend systems to understand and reason about large codebases.
 
-Tailwind CSS (for responsive styling)
+---
 
-Backend (Orchestrator)
-Node.js & Express.js (API routing & Authentication)
+## 🏗️ Architecture
 
-MongoDB & Mongoose (User, Project, and Chat History storage)
+```
+Frontend (React)
+        ↓
+Backend (Node.js + Express)
+        ↓
+AI Service (Python + FastAPI)
+        ↓
+Embeddings + LLM
+        ↓
+MongoDB Atlas
+```
 
-JWT (Secure session management)
+---
 
-AI Service (RAG Engine)
-Python & FastAPI (High-performance ML processing)
+## ⚙️ Tech Stack
 
-FAISS (Local vector similarity search)
+### Frontend
 
-Supabase (Cloud storage for persistent vector indices and metadata)
+* React (Vite)
+* Axios
 
-Stapi / Substratus AI (Local embedding generation via all-MiniLM-L6-v2)
+### Backend
 
-OpenRouter API (LLM inference)
+* Node.js
+* Express.js
+* MongoDB Atlas
 
-📂 Project Structure
-Plaintext
-contextual_codebase/
-├── frontend/             # React + Vite web application
-│   ├── src/pages/        # Dashboard, Login, Register, Query views
-│   └── src/components/   # Reusable UI components (Navbar, MessageBubble)
-├── backend/              # Node.js/Express API server
-│   ├── src/models/       # Mongoose schemas (User, Project, Query)
-│   ├── src/routes/       # API endpoints (/auth, /project, /query)
-│   └── src/controllers/  # Business logic
-├── ai_service/           # Python FastAPI application
-│   ├── services/         # RAG pipeline (chunker, embeddings, rag_engine)
-│   └── app.py            # FastAPI endpoints (/index-repo, /query, /cleanup)
-└── docker-compose.yml    # Multi-container orchestration
-📋 Prerequisites
-Ensure you have the following installed on your system before proceeding:
+### AI Service
 
-Docker and Docker Compose
+* FastAPI
+* Sentence Transformers (Embeddings)
+* OpenRouter (LLM)
 
-Git
+### DevOps
 
-API Keys for:
+* Docker & Docker Compose
 
-OpenRouter (For LLM responses)
+---
 
-Supabase (For storing FAISS index data)
+## 📦 Features
 
-Hugging Face (Optional, depending on Stapi usage)
+* 🔍 GitHub repository indexing
+* 🧩 Code chunking & embeddings
+* 💬 Natural language query system
+* ⚡ Real-time API communication
+* 🐳 Fully dockerized setup
 
-⚙️ Environment Configuration
-Create a .env file in the root directory. The docker-compose.yml relies on these variables to inject configuration into the respective containers.
+---
 
-Code snippet
-# Backend / Database
-MONGO_URI=your_mongodb_connection_string
-JWT_SECRET=your_super_secret_jwt_key
+## 🚀 Getting Started
 
-# Supabase Storage (AI Service)
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your_supabase_anon_or_service_key
-SUPABASE_BUCKET=your_storage_bucket_name
+### 1. Clone the Repository
 
-# AI Models (AI Service / Stapi)
-OPENROUTER_API_KEY=your_openrouter_api_key
-HF_TOKEN=your_huggingface_token
-🚀 Running the Application (Docker)
-The easiest way to run the entire stack is using Docker Compose. It will automatically build the frontend, backend, AI service, and pull the Stapi embeddings image.
+```bash
+git clone https://github.com/your-username/contextual-codebase-ai.git
+cd contextual-codebase-ai
+```
 
-Build and start the containers:
+---
 
-Bash
+### 2. Setup Environment Variables
+
+#### Backend (`/backend/.env`)
+
+```
+MONGO_URI=your_mongodb_atlas_uri
+JWT_SECRET=your_secret
+AI_SERVICE_URL=http://ai_service:8000
+```
+
+---
+
+#### AI Service (`/ai_service/.env`)
+
+```
+OPENROUTER_API_KEY=your_key
+SUPABASE_URL=your_url   # optional
+SUPABASE_KEY=your_key   # optional
+```
+
+---
+
+### 3. Run with Docker
+
+```bash
 docker-compose up --build
-Access the Application:
+```
 
-Frontend UI: http://localhost:5173
+---
 
-Backend API: http://localhost:5000
+### 4. Access the Application
 
-AI Service Docs: http://localhost:8000/docs (Swagger UI)
+| Service  | URL                   |
+| -------- | --------------------- |
+| Frontend | http://localhost:5173 |
+| Backend  | http://localhost:5000 |
+| AI API   | http://localhost:8000 |
 
-Stapi (Embeddings): http://localhost:8081
+---
 
-To stop the application:
+## 🧪 API Endpoints
 
-Bash
-docker-compose down
-💻 Running Locally (Without Docker)
-If you prefer to run the services individually for development:
+### 🔹 Index Repository
 
-1. Backend
-Bash
-cd backend
-npm install
-# Ensure you have a local MongoDB running or update MONGO_URI in backend/.env
-npm run dev
-2. AI Service
-Bash
-cd ai_service
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-# Ensure you start a local embedding model or mock the stapi endpoint
-uvicorn app:app --reload --port 8000
-3. Frontend
-Bash
-cd frontend
-npm install
-npm run dev
-🛡️ Core Architecture Flow
-Indexing (/api/project/create ➔ AI Service /index-repo): When a user submits a repository URL, the backend registers the project and triggers the FastAPI service. The AI service clones the repo, reads the files, chunks the code, generates vector embeddings using the local Stapi container, and saves the FAISS index to Supabase.
+```http
+POST /index-repo
+```
 
-Querying (/api/query ➔ AI Service /query): Users ask questions via the React frontend. The backend logs the query and forwards it to the AI service. The AI service converts the question to an embedding, searches the FAISS index for the top-K relevant code chunks, and constructs a detailed prompt for the OpenRouter LLM to generate a codebase-specific answer.
+**Request Body:**
+
+```json
+{
+  "repo_url": "https://github.com/user/repo"
+}
+```
+
+---
+
+### 🔹 Query Codebase
+
+```http
+POST /query
+```
+
+**Request Body:**
+
+```json
+{
+  "project_id": "project_id",
+  "question": "Explain authentication flow"
+}
+```
+
+---
+
+## ⚠️ Known Limitations
+
+* Large repositories may take time to index
+* External APIs (LLM) may introduce latency
+* Requires valid API keys
+
+---
+
+## 🔮 Future Improvements
+
+* Multi-agent system using LangGraph
+* Replace external vector DB with FAISS
+* Code dependency graph visualization
+* Performance optimizations
+
+---
+
+## 🧠 Key Learnings
+
+* Microservices architecture
+* AI integration with backend systems
+* Embeddings and vector search
+* Docker-based development workflow
+
+---
+
+## 🤝 Contributing
+
+Pull requests are welcome. For major changes, please open an issue first.
+
+---
+
+## 📜 License
+
+MIT License
+
+---
+
+## 👨‍💻 Author
+
+Ayush Kumar Sharma
