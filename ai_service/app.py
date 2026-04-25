@@ -1,166 +1,3 @@
-# from dotenv import load_dotenv
-# load_dotenv()
-
-# from fastapi import FastAPI, HTTPException
-# from pydantic import BaseModel
-# import shutil
-# import os
-# import stat
-# import time
-# from services.rag.rag_engine import index_repo, answer_question
-# from services.agents.critic import critic_agent
-# from services.ml.feature_extractor import extract_features
-# from services.ml.model import predict_confidence
-
-# app = FastAPI(title="CCA AI Service")
-
-# #Models
-
-# class IndexRequest(BaseModel):
-#     project_id: str
-#     repo_url: str
-
-# class QueryRequest(BaseModel):
-#     project_id: str
-#     question: str
-
-# #Routes
-
-
-
-# #checking is api works ?
-# @app.get("/health")
-# def health():
-#     return {"status": "ok"}
-
-
-# #indexing of the repo
-# @app.post("/index-repo")
-# def index_repository(req: IndexRequest):
-#     try:
-#         result = index_repo(req.project_id, req.repo_url)
-#         return result
-#     except Exception as e:
-#         print("🔥 INDEX ERROR:", str(e))
-#         raise HTTPException(status_code=500, detail=str(e))
-
-
-# @app.post("/query")
-# def query_repository(req: QueryRequest):
-#     try:
-#         state = {
-#             "project_id": req.project_id,
-#             "query": req.question,
-#             "original_query": req.question,
-#             "iterations": 0
-#         }
-
-#         trace = []
-
-#         while True:
-#             # Step 1: Generate answer (your existing system)
-#             result = answer_question(state["project_id"], state["query"])
-#             answer = result.get("answer")
-
-#             state["answer"] = answer
-
-#             # Step 2: Extract features
-#             features_data = extract_features({
-#                 "query": state["query"],
-#                 "answer": state["answer"],
-#                 "docs": []  # still no context returned
-#             })
-
-#             features = features_data["features"]
-#             state["features"] = features
-
-#             # Step 3: Predict confidence
-#             confidence = predict_confidence(features)
-#             state["confidence"] = confidence
-
-#             # Step 4: Critic decision
-#             decision = critic_agent(state)
-            
-#             print(f"[Iteration {state['iterations']}] Confidence: {confidence}, Decision: {decision['action']}")
-
-#             trace.append({
-#                 "iteration": state["iterations"],
-#                 "confidence": confidence,
-#                 "decision": decision["action"]
-#             })
-
-
-#             if decision["action"] == "retry":
-#                 state["query"] = f"""
-#             Improve the previous answer.
-
-#             Original Question:
-#             {state["query"]}
-
-#             Previous Answer:
-#             {state["answer"]}
-
-#             Provide a more accurate and detailed explanation using code references.
-#             """
-
-#             if decision["action"] == "accept":
-#                 break
-
-#             state["iterations"] = decision["iterations"]
-
-#         return {
-#             "answer": state["answer"],
-#             "confidence": state["confidence"],
-#             "iterations": state["iterations"],
-#             "trace": trace
-#         }
-
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
-
-
-
-# #delete the data of user after logged out
-
-
-# def force_delete(func, path, exc_info):
-#     # Change file permission and retry
-#     os.chmod(path, stat.S_IWRITE)
-#     func(path)
-
-
-# from supabase_client import delete_index
-
-# TMP_REPO_PATH = "./tmp/repos"
-# LOCAL_INDEX_PATH = "./tmp/index.faiss"
-# LOCAL_META_PATH = "./tmp/meta.pkl"
-
-# @app.post("/cleanup")
-# def cleanup_repo(data: dict):
-#     project_id = data["project_id"]
-
-#     # 1. Delete from Supabase
-#     try:
-#         delete_index(f"{project_id}.faiss")
-#         delete_index(f"{project_id}.meta")
-#     except Exception as e:
-#         print("Supabase delete error:", e)
-
-#     # Delete cloned repo (Windows-safe)
-#     repo_path = os.path.join(TMP_REPO_PATH, project_id)
-#     if os.path.exists(repo_path):
-#         shutil.rmtree(repo_path, onerror=force_delete)
-
-#     # Delete FAISS temp files
-#     if os.path.exists(LOCAL_INDEX_PATH):
-#         os.remove(LOCAL_INDEX_PATH)
-
-#     if os.path.exists(LOCAL_META_PATH):
-#         os.remove(LOCAL_META_PATH)
-
-
-#     return {"status": "deleted"}
-
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -169,24 +6,23 @@ from pydantic import BaseModel
 import shutil
 import os
 import stat
+import re
+import logging
 
-# Core services
+# Core RAG service — handles repo cloning, chunking, embedding, and querying
 from services.rag.rag_engine import index_repo, answer_question
 
-# ML + Agents
-from services.ml.feature_extractor import extract_features
-from services.ml.model import predict_confidence
+# Confidence scoring and critic agent for the agentic retry loop
+from services.ml.model import compute_confidence
 from services.agents.critic import critic_agent
 
-# Optional logging
-import logging
 logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title="CCA AI Service")
 
 
 # =========================
-# Models
+# Request Models
 # =========================
 
 class IndexRequest(BaseModel):
@@ -199,153 +35,188 @@ class QueryRequest(BaseModel):
 
 
 # =========================
+# Helpers
+# =========================
+
+def validate_github_url(url: str) -> bool:
+    """
+    Only allow GitHub URLs in the format:
+    https://github.com/<owner>/<repo>
+
+    This prevents attackers from passing:
+    - file:///etc/passwd       (local file read via git clone)
+    - https://evil.com/repo    (arbitrary remote code)
+    - Internal IPs             (SSRF — hitting internal services)
+    """
+    pattern = r'^https://github\.com/[\w\-]+/[\w\-\.]+/?$'
+    return bool(re.match(pattern, url))
+
+def force_delete(func, path, exc_info):
+    """
+    Windows-safe deletion helper for shutil.rmtree.
+    .git/ directories often have read-only files on Windows —
+    this chmod's them writable before retrying.
+    """
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
+# =========================
 # Health Check
 # =========================
 
 @app.get("/health")
 def health():
+    """Liveness probe used by Docker healthcheck and load balancers."""
     return {"status": "ok"}
 
 
 # =========================
-# Index Repo
+# Index Repository
 # =========================
 
 @app.post("/index-repo")
 def index_repository(req: IndexRequest):
+    """
+    Pipeline:
+    1. Validate GitHub URL (security)
+    2. Clone the repo locally under ./tmp/repos/<project_id>/
+    3. Read all code files, chunk by lines with overlap
+    4. Generate embeddings for each chunk (sentence-transformers)
+    5. Save FAISS index to ./tmp/<project_id>.faiss
+       and metadata to ./tmp/<project_id>.meta
+
+    project_id namespacing ensures users never overwrite each other's indexes.
+    """
+    if not validate_github_url(req.repo_url):
+        raise HTTPException(
+            status_code=400,
+            detail="Only public GitHub URLs supported. Format: https://github.com/owner/repo"
+        )
+
     try:
         result = index_repo(req.project_id, req.repo_url)
         return result
     except Exception as e:
-        print("🔥 INDEX ERROR:", str(e))
+        logging.error(f"Indexing failed for {req.project_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 # =========================
-# Query with Agent Loop
+# Query — Agentic Retry Loop
 # =========================
 
 @app.post("/query")
 def query_repository(req: QueryRequest):
-    try:
-        MAX_ITERATIONS = 5
+    """
+    Answers a natural language question about the indexed codebase.
 
-        state = {
-            "project_id": req.project_id,
-            "query": req.question,
-            "original_query": req.question,
-            "iterations": 0
-        }
+    Agentic loop:
+    - Iteration 1: RAG retrieves top-k chunks, LLM generates answer
+    - Confidence is computed as cosine similarity between query embedding
+      and retrieved chunk embeddings (high = relevant chunks found)
+    - Critic checks: if confidence >= 0.5 → accept and return
+    - If low confidence → refine the query with previous answer as context and retry
+    - Max 3 iterations to cap LLM API cost
+    """
+    MAX_ITERATIONS = 3
 
-        trace = []
+    state = {
+        "project_id": req.project_id,
+        "query": req.question,
+        "original_query": req.question,
+        "iterations": 0,
+        "answer": None,
+        "confidence": 0.0,
+    }
 
-        while state["iterations"] < MAX_ITERATIONS:
+    trace = []
 
-            # Step 1: Generate answer
-            result = answer_question(state["project_id"], state["query"])
-            answer = result.get("answer")
+    while state["iterations"] < MAX_ITERATIONS:
 
-            state["answer"] = answer
+        # Retrieve relevant chunks + generate answer
+        # answer_question now returns query_vector and retrieved_vectors
+        # so confidence can be computed from actual semantic similarity
+        result = answer_question(state["project_id"], state["query"])
+        state["answer"] = result["answer"]
 
-            # Step 2: Extract features (use ORIGINAL query)
-            features_data = extract_features({
-                "query": state["original_query"],
-                "answer": state["answer"],
-                "docs": []
-            })
+        # Real confidence: cosine similarity of query vs retrieved chunks
+        # If we retrieved irrelevant chunks, similarity is low → retry
+        confidence = compute_confidence(
+            query_vector=result["query_vector"],
+            retrieved_vectors=result["retrieved_vectors"]
+        )
+        state["confidence"] = confidence
 
-            features = features_data["features"]
+        decision = critic_agent(state)
 
-            # Step 3: Predict confidence
-            confidence = predict_confidence(features)
-            state["confidence"] = confidence
+        logging.info(
+            f"[Iteration {state['iterations']}] "
+            f"Confidence: {confidence:.3f} | Decision: {decision['action']}"
+        )
 
-            # Step 4: Critic decision
-            decision = critic_agent(state)
+        trace.append({
+            "iteration": state["iterations"],
+            "confidence": confidence,
+            "decision": decision["action"]
+        })
 
-            # Logging
-            logging.info(
-                f"[Iteration {state['iterations']}] "
-                f"Confidence: {confidence}, Decision: {decision['action']}"
-            )
+        if decision["action"] == "accept":
+            break
 
-            # Trace for API response
-            trace.append({
-                "iteration": state["iterations"],
-                "confidence": confidence,
-                "decision": decision["action"]
-            })
-
-            # Stop if good
-            if decision["action"] == "accept":
-                break
-
-            # 🔥 Improve query using previous answer
-            state["query"] = f"""
+        # Refine query: give the LLM context of what it said before
+        # Always anchor to original_query so we don't drift from user's intent
+        state["query"] = f"""
 Original Question:
 {state["original_query"]}
 
-Previous Answer:
+Previous Answer (needs improvement):
 {state["answer"]}
 
-Improve the answer with:
-- better accuracy
-- clearer explanation
-- relevant code references
+Provide a more accurate answer with:
+- Specific code references from the codebase
+- Clear explanation of what the code does
+- Any important edge cases missing from previous answer
 """
+        state["iterations"] += 1
 
-            # Increment iteration
-            state["iterations"] += 1
-
-        # Final response
-        return {
-            "answer": state["answer"],
-            "confidence": state["confidence"],
-            "iterations": state["iterations"],
-            "trace": trace
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {
+        "answer": state["answer"],
+        "confidence": state["confidence"],
+        "iterations": state["iterations"],
+        "trace": trace
+    }
 
 
 # =========================
 # Cleanup
 # =========================
 
-def force_delete(func, path, exc_info):
-    os.chmod(path, stat.S_IWRITE)
-    func(path)
-
-
-from supabase_client import delete_index
-
 TMP_REPO_PATH = "./tmp/repos"
-LOCAL_INDEX_PATH = "./tmp/index.faiss"
-LOCAL_META_PATH = "./tmp/meta.pkl"
-
 
 @app.post("/cleanup")
 def cleanup_repo(data: dict):
-    project_id = data["project_id"]
+    """
+    Deletes all local artifacts for a project:
+    - Cloned repo under ./tmp/repos/<project_id>/
+    - FAISS index: ./tmp/<project_id>.faiss
+    - Metadata:    ./tmp/<project_id>.meta
 
-    # Delete from Supabase (optional)
-    try:
-        delete_index(f"{project_id}.faiss")
-        delete_index(f"{project_id}.meta")
-    except Exception as e:
-        print("Supabase delete error:", e)
+    Must be called when user deletes a project — otherwise disk fills up.
+    """
+    project_id = data.get("project_id")
+    if not project_id:
+        raise HTTPException(status_code=400, detail="project_id required")
 
-    # Delete repo
     repo_path = os.path.join(TMP_REPO_PATH, project_id)
     if os.path.exists(repo_path):
         shutil.rmtree(repo_path, onerror=force_delete)
+        logging.info(f"Deleted repo: {repo_path}")
 
-    # Delete temp files
-    if os.path.exists(LOCAL_INDEX_PATH):
-        os.remove(LOCAL_INDEX_PATH)
+    for ext in [".faiss", ".meta"]:
+        path = f"./tmp/{project_id}{ext}"
+        if os.path.exists(path):
+            os.remove(path)
+            logging.info(f"Deleted: {path}")
 
-    if os.path.exists(LOCAL_META_PATH):
-        os.remove(LOCAL_META_PATH)
-
-    return {"status": "deleted"}
+    return {"status": "deleted", "project_id": project_id}
