@@ -29,6 +29,12 @@ AI Service (Python + FastAPI)
 Embeddings + LLM
         ↓
 MongoDB Atlas
+
+
+- **Agentic Loop**: Query → RAG retrieval → Cosine similarity confidence scoring → Critic decision → Retry if confidence < 0.5 (max 3 iterations)
+- **Isolation**: Each project's FAISS index is namespaced by `project_id` — no cross-user data leakage
+- **Security**: GitHub URL validation on all index requests; CORS restricted to frontend origin
+
 ```
 
 ---
