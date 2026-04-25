@@ -18,20 +18,52 @@ def read_files(repo_path: str) -> List[str]:
     
     return files
 
-def chunk_code(file_path: str, chunk_size: int = DEFAULT_CHUNK_SIZE, overlap: int = DEFAULT_CHUNK_OVERLAP) -> List[str]:
-    """Return list of text chunks for a single file."""
-    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-        text = f.read()
+# def chunk_code(file_path: str, chunk_size: int = DEFAULT_CHUNK_SIZE, overlap: int = DEFAULT_CHUNK_OVERLAP) -> List[str]:
+#     """Return list of text chunks for a single file."""
+#     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+#         text = f.read()
 
-    if not text:
+#     if not text:
+#         return []
+
+#     chunks = []
+#     start = 0
+#     text_len = len(text)
+#     while start < text_len:
+#         end = start + chunk_size
+#         chunk = text[start:end]
+#         chunks.append(chunk)
+#         #start = max(end - overlap, end) if overlap < chunk_size else end
+        
+#         #max(end - overlap, end) — mathematically, end - overlap < end hamesha (jab overlap > 0).
+#         #So max() hamesha end return karega.
+#         #Overlap kaam hi nahi kar raha.
+#     return chunks
+
+def chunk_code(file_path: str, chunk_size: int = 50, overlap: int = 10) -> List[str]:
+    """
+    Chunk by LINES not characters.
+    chunk_size = number of lines per chunk
+    overlap = lines shared between consecutive chunks
+    """
+    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+        lines = f.readlines()
+
+    if not lines:
         return []
 
     chunks = []
     start = 0
-    text_len = len(text)
-    while start < text_len:
-        end = start + chunk_size
-        chunk = text[start:end]
-        chunks.append(chunk)
-        start = max(end - overlap, end) if overlap < chunk_size else end
+    total_lines = len(lines)
+
+    while start < total_lines:
+        end = min(start + chunk_size, total_lines)
+        chunk = "".join(lines[start:end])
+        
+        if chunk.strip():  # skip empty chunks
+            chunks.append(chunk)
+        
+        # Move forward by (chunk_size - overlap) — this is correct overlap logic
+        start += chunk_size - overlap
+
     return chunks
