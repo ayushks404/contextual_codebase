@@ -18,27 +18,7 @@ def read_files(repo_path: str) -> List[str]:
     
     return files
 
-# def chunk_code(file_path: str, chunk_size: int = DEFAULT_CHUNK_SIZE, overlap: int = DEFAULT_CHUNK_OVERLAP) -> List[str]:
-#     """Return list of text chunks for a single file."""
-#     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-#         text = f.read()
 
-#     if not text:
-#         return []
-
-#     chunks = []
-#     start = 0
-#     text_len = len(text)
-#     while start < text_len:
-#         end = start + chunk_size
-#         chunk = text[start:end]
-#         chunks.append(chunk)
-#         #start = max(end - overlap, end) if overlap < chunk_size else end
-        
-#         #max(end - overlap, end) — mathematically, end - overlap < end hamesha (jab overlap > 0).
-#         #So max() hamesha end return karega.
-#         #Overlap kaam hi nahi kar raha.
-#     return chunks
 
 def chunk_code(file_path: str, chunk_size: int = 50, overlap: int = 10) -> List[str]:
     """
