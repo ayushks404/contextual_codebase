@@ -12,9 +12,28 @@ dotenv.config();
 
 const app = express();
 
-app.use(cors());
+// CORS: only allow requests from our frontend origin
+// app.use(cors()) with no options = any domain can call this API
+// That means a random website could make authenticated requests on behalf of my users
+
+app.use(cors({
+  origin: process.env.FRONTEND_URL || "http://localhost:5173",
+  credentials: true,   // needed if frontend sends cookies / auth headers
+}));
+
 app.use(express.json());
 
+
+
+
+app.get("/", (req, res) => {
+  res.send("backend running");
+});
+ 
+app.use("/api/auth", auth_routes);
+app.use("/api/project", project_routes);
+app.use("/api/query", query_routes);
+ 
 
 const connectdb = async () => {
     try{
@@ -29,9 +48,6 @@ const connectdb = async () => {
 
 
 
-app.get("/" , (req,res) => {
-    res.send("backend running");
-});
 
 
 const PORT = process.env.PORT;
@@ -42,9 +58,4 @@ app.listen(PORT , () =>{
 connectdb();
 
 
-
-
-app.use("/api/query" , query_routes);
-app.use("/api/auth" , auth_routes);
-app.use("/api/project" , project_routes);
 
